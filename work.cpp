@@ -1,55 +1,84 @@
 #include<iostream>
 #include<functional>
 #include<utility>
+#include<typeinfo>
 using namespace std;
-class I2I
+#define DC //cout<<typeid(*this).name()<<endl;
+class Func;
+class Fibarg
 {
 	public:
-	virtual tuple<int,I2I*,bool,bool> tri(int x){return make_tuple(x,this,true,true);}
+	int x;
+	Func* f;
+	Fibarg(int x,Func* f);//:x(x),f(f){DC cout<<"x:"<<x<<" f:"<<typeid(*f).name()<<endl;}
 };
-class Simadd : public I2I
+template<typename Arg>
+class Unit
 {
 	public:
-		int x;
-		I2I* f;
-	Simadd(int x, I2I* f):x(x),f(f){}
-	tuple<int,I2I*,bool,bool> tri(int y)
-	{
-		return make_tuple(x+y,f,true,false);
-	}
+	Arg arg;
+	Unit<Arg> (*nextf) (Arg);
+	bool finished;
+	Unit(Arg arg,Unit<Arg> (*nextf) (Arg),bool finished):arg(arg),nextf(nextf),finished(finished){DC}
 };
-class Cls : public I2I
+template<typename Arg>
+Arg trampoline(Unit<Arg> t)
 {
-	public:
-		int n;
-		I2I* f;
-	Cls(int n, I2I* f):n(n),f(f){}
-	tuple<int,I2I*,bool,bool> tri(int x)
-	{
-		return make_tuple(n,new Simadd(x,f),false,false);
-	}
-};
-tuple<int,I2I*,bool,bool> fibonacci_cps(int n,I2I* f)
-{
-	return n<2?make_tuple(1,f,true,false):make_tuple(n-2,new Cls(n-1,f),false,false);
-}
-int tram(tuple<int,I2I*,bool,bool> t)
-{
+	int cnt=0;
 	auto pp = t;
 	while(1)
 	{
-		auto finished = get<3>(pp);
-		auto nofib = get<2>(pp);
-		auto f = get<1>(pp);
-		auto arg = get<0>(pp);
-		if(finished)
-			return arg;
-		pp = nofib?f->tri(arg):fibonacci_cps(arg,f);
+		//cout<<"loop count:"<<++cnt<<"t.arg.x:"<<t.arg.x<<endl;
+		if(pp.finished)
+			return pp.arg;
+		pp = pp.nextf(pp.arg);
 	}
 }
+Unit<Fibarg> exec(Fibarg);
+Unit<Fibarg> fibonacci_cps(Fibarg);
+class Func
+{
+	public:
+	virtual Unit<Fibarg> eval(int x){return Unit<Fibarg>((Fibarg(x,this)),exec,true);}
+};
+class Simadd : public Func
+{
+	public:
+		Fibarg arg;
+	Simadd(Fibarg arg):arg(arg){DC}
+	Unit<Fibarg> eval(int y)
+	{
+		return Unit<Fibarg>(Fibarg(arg.x+y,arg.f),exec,false);
+	}
+};
+class Cls : public Func
+{
+	public:
+		Fibarg arg;
+	Cls(Fibarg arg):arg(arg){DC}
+	Unit<Fibarg> eval(int y)
+	{
+		return Unit<Fibarg>(Fibarg(arg.x,new Simadd(Fibarg(y,arg.f))),fibonacci_cps,false);
+	}
+};
+Unit<Fibarg> fibonacci_cps(Fibarg arg)
+{
+	//cout<<"fib: arg.x:"<<arg.x<<endl;
+	auto res = arg.x<2?\
+		Unit<Fibarg>(Fibarg(1,arg.f),exec,false):\
+		Unit<Fibarg>(Fibarg(arg.x-2,new Cls(Fibarg(arg.x-1,arg.f))),fibonacci_cps,false);
+	//cout<<"res.arg.x:"<<res.arg.x<<endl;
+	return res;
+}
+Unit<Fibarg> exec(Fibarg arg)
+{
+	return arg.f->eval(arg.x);
+}
+Fibarg::Fibarg(int x,Func* f):x(x),f(f){DC /*cout<<"x:"<<x<<" f:"<<typeid(*f).name()<<endl;*/}
 int main()
 {
-	I2I i2i;
-	for(int i=0;i<50;i++)
-		cout<<tram(make_tuple(i,&i2i,false,false))<<endl;
+	Func i2i;
+	for(int i=0;i<30;i++)
+	//int i=4;
+		cout<<trampoline(Unit<Fibarg>(Fibarg(i,&i2i),fibonacci_cps,false)).x<<endl;
 }
