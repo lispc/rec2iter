@@ -1,78 +1,55 @@
 #include<iostream>
 #include<functional>
-#include<tuple>
-#include<cassert>
-#include<vector>
+#include<utility>
 using namespace std;
-class Toeval;//a function and its argument
-//class Func;
-class Fibinput;//fib arguments
-typedef function<Toeval(Fibinput)> Fib;//sig of fib
-typedef function<Toeval(int)> Fibf2;//second argument of Func
-class Fibinput
+class I2I
 {
 	public:
-		int i;
-		Fibf2 f;
-		Fibinput(){}
-		Fibinput(int ii,Fibf2 ff):i(ii),f(ff){}
+	virtual tuple<int,I2I*,bool,bool> tri(int x){return make_tuple(x,this,true,true);}
 };
-//class 
-class Toeval
+class Simadd : public I2I
 {
 	public:
-		AF f;
-		AD d;
-		bool finished;
-		int result;
-		Toeval(){}
-		Toeval(AF ff, AD dd):f(ff),d(dd),finished(false){}
-};
-class Tram
-{
-	public:
-		Toeval seed;
-		Tram(){}
-		Tram(Toeval ss):seed(ss){}
-		exec()
-		{
-			while(seed.needeval())
-			{
-				seed=seed.eval();
-			}
-			return seed.result;
-		}
-}
-Toeval fibonacci_cps(Fibinput v)
-{
-	int n=v.i;
-	Fibf2 f=v.f;
-	if(n<2)
+		int x;
+		I2I* f;
+	Simadd(int x, I2I* f):x(x),f(f){}
+	tuple<int,I2I*,bool,bool> tri(int y)
 	{
-		Unit u(f,Data(n,nul));
-		//u.finished=true;
-		//u.result=f(1).result;
-		return u;
+		return make_tuple(x+y,f,true,false);
 	}
-	else
+};
+class Cls : public I2I
+{
+	public:
+		int n;
+		I2I* f;
+	Cls(int n, I2I* f):n(n),f(f){}
+	tuple<int,I2I*,bool,bool> tri(int x)
 	{
-		Func f = [&](Data x){
-					Func f0=[&](Data d){}
-					Unit u0(fibonacci_cps,(Data(n-1,[&](Data y){
-					Unit u(x.i+y.i,f);
-					return u;
-					})))
-					return u0;
-				};
-		Data data(n-2,f);
-		return Unit(fibonacci_cps,data);
+		return make_tuple(n,new Simadd(x,f),false,false);
+	}
+};
+tuple<int,I2I*,bool,bool> fibonacci_cps(int n,I2I* f)
+{
+	return n<2?make_tuple(1,f,true,false):make_tuple(n-2,new Cls(n-1,f),false,false);
+}
+int tram(tuple<int,I2I*,bool,bool> t)
+{
+	auto pp = t;
+	while(1)
+	{
+		auto finished = get<3>(pp);
+		auto nofib = get<2>(pp);
+		auto f = get<1>(pp);
+		auto arg = get<0>(pp);
+		if(finished)
+			return arg;
+		pp = nofib?f->tri(arg):fibonacci_cps(arg,f);
 	}
 }
 int main()
 {
-	for(int i=0;i<8;i++)
-	{
-		Data seed(i,id);
-		cout<<call(Unit(fibonacci_cps,seed))<<endl;
-	}
+	I2I i2i;
+	for(int i=0;i<50;i++)
+		cout<<tram(make_tuple(i,&i2i,false,false))<<endl;
 }
